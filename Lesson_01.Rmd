@@ -1,0 +1,44 @@
+---
+title: 'R Course: Lesson 1: RBasics'
+author: "Reddy Lee"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(ggplot2)
+```
+
+# data
+```{r}
+lesson1 <- read.csv("rcourse_lesson1_data.txt",sep = "\t")
+data_bl <- lesson1 %>% 
+  filter(group=="bilingual") %>% 
+  filter(rt<1100)
+
+dim(lesson1)
+dim(data_bl)
+```
+# plot
+```{r}
+data.plot <- lesson1 %>% 
+  ggplot(aes(x=group,y=rt))+
+  geom_boxplot()
+
+
+pdf("figures/data.pdf")
+data.plot
+#dev.off()
+```
+
+# Figure
+Here's a figure of the bilinguals compared to the monolinguals.
+{r, fig.align='center'}
+
+```{r}
+data.plot
+```
+ 
+ 

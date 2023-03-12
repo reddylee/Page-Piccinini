@@ -1,0 +1,75 @@
+---
+title: 'R Course: Lesson 3: LOGISTIC REGRESSION'
+author: "Reddy Lee"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(ggplot2)
+```
+
+# Data Cleaning
+```{r}
+fullseason <- read.csv("rcourse_lesson3_data.txt",sep = "\t") %>% 
+  mutate(home_visitor=ifelse(home_team=="SFN","home","visitor")) %>% 
+  mutate(allstar_break=ifelse(date<20100713,"before","after")) %>% 
+  mutate(win=ifelse(home_team=="SFN"&home_score>visitor_score,1,
+                    ifelse(visitor_team=="SFN"&home_score<visitor_score,1,0)))
+
+posey <- read.csv("rcourse_lesson3_data_posey.txt",sep = "\t") 
+  
+posey_clean <- posey %>% 
+  merge(fullseason) %>% 
+  mutate(walked=ifelse(walks>0,"yes","no"))
+
+```
+
+# Figures
+```{r}
+data_figs <- fullseason %>% 
+  mutate(allstar_break=factor(allstar_break,levels=c("before","after")))
+
+data_figs_sum <- data_figs %>% 
+  group_by(allstar_break) %>% 
+  summarise(wins_perc=mean(win)*100) %>% 
+  ungroup() %>% 
+  View()
+
+allstar.plot <- data_figs_sum %>% 
+  ggplot(aes(x=allstar_break,y=wins_perc))+
+  geom_bar(stat = "identity")+
+  ylim(0,100) 
+
+allstar.plot
+```
+
+```{r}
+posey_figs <- posey_clean 
+
+posey_figs_sum <- posey_figs %>% 
+  group_by(walked) %>% 
+  summarise(wins_perc=mean(win)*100) %>% 
+  ungroup() %>% 
+  View()
+
+posey_walked_plot <- posey_figs_sum %>% 
+  ggplot(aes(x=walked,y=wins_perc))+
+  geom_bar(stat = "identity")+
+  ylim(0,100)
+
+posey_walked_plot
+```
+
+# Statistics
+```{r}
+allstar.glm <- glm(win~allstar_break,family="binomial",data=fullseason)
+summary(allstar.glm)
+```
+```{r}
+posey_walked_glm <- glm(win~walked,family = "binomial",data=posey_clean)
+summary(posey_walked_glm)
+```
+

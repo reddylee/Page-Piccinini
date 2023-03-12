@@ -1,5 +1,5 @@
 ---
-title: 'R Course: Lesson 1: RBasics'
+title: 'R Course: Lesson 1: R Basics'
 author: "Reddy Lee"
 date: "`r Sys.Date()`"
 output: html_document
@@ -39,6 +39,7 @@ Here's a figure of the bilinguals compared to the monolinguals.
 
 ```{r}
 data.plot
+
 ```
  
  

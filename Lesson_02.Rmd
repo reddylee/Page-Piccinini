@@ -1,0 +1,88 @@
+---
+title: 'R Course: Lesson 2: LINEAR REGRESSION'
+author: "Reddy Lee"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(ggplot2)
+```
+
+# Data Cleaning
+```{r}
+library(babynames)
+View(babynames)
+```
+ 
+```{r}
+
+data_Lee <- babynames %>% 
+  filter(name=="Lee")
+
+xtabs(~name,data_Lee)
+```
+```{r}
+data_clean <- babynames %>% 
+  filter(name=="Page") %>% 
+  mutate(name=factor(name)) %>% 
+  filter(year>1900 & year<=2000)
+
+xtabs(~name,data_clean)
+
+summary(data_clean$year)
+```
+# Describe the data by Figures
+```{r}
+data_figs <- data_clean %>% 
+  mutate(sex=factor(sex,levels=c("F","M"),labels=c("Female","Male")))
+Lee.plot <- data_Lee %>% 
+  ggplot(aes(x=log10(prop)))+
+  geom_histogram(color="skyblue")
+Page.plot <- data_figs %>% 
+  ggplot(aes(x=log10(prop)))+
+  geom_histogram(color="skyblue")
+
+Lee.plot
+Page.plot
+```
+## how the popularity of my name, “Page”, changes over time
+```{r}
+year.plot <- data_figs %>% 
+  ggplot(aes(x=year,y=log10(prop)))+
+  geom_point()+
+  geom_smooth(method = "lm")
+
+year.plot
+```
+## if there is a difference by sex in terms of popularity
+```{r}
+sex.plot <- data_figs %>% 
+  ggplot(aes(x=sex,y=log10(prop)))+
+  geom_boxplot(color="purple")
+
+sex.plot
+```
+# Statistics analysis
+## year effect
+```{r}
+library(stargazer)
+data.stats <- data_clean
+attach(data.stats)
+
+year.lm <- lm(log10(prop)~year)
+summary(year.lm)
+stargazer(year.lm,type="text")
+hist( resid(year.lm))
+```
+
+## sex effect
+```{r}
+sex.lm <- lm(log10(prop)~sex)
+summary(sex.lm)
+stargazer(year.lm, sex.lm,type="text")
+hist( resid(sex.lm))
+```
+

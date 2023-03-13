@@ -1,0 +1,254 @@
+---
+title: 'R Course: Lesson 5: ANALYSIS OF VARIANCE (ANOVA)'
+author: "Reddy Lee"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(patchwork)
+library(gapminder)
+library(forcats)
+library(stargazer)
+library(purrr)
+```
+
+# Math
+ANOVA is used only in continuous dependent variables
+
+## example in R
+
+```{r}
+gapdata <- gapminder %>% 
+  filter(year==2007&
+           continent %in% c("Americas","Europe","Asia")) %>% 
+  select(continent,lifeExp)
+
+gapdata %>% 
+  group_by(continent) %>% 
+  summarise(mean.life=mean(lifeExp)) %>% 
+  arrange(mean.life) %>% 
+  ungroup()
+
+gapdata %>% 
+  aov(lifeExp~continent,data=.) %>% 
+  summary()
+
+gapdata %>% 
+  aov(lifeExp~continent,data=.) %>% 
+  TukeyHSD() %>% 
+  plot()
+```
+```{r}
+my.data <- msleep %>% 
+  select(vore,sleep_rem) %>% 
+  drop_na()
+
+my.data %>% 
+  aov(sleep_rem~vore,data=.) %>% 
+  TukeyHSD() %>% 
+  plot()
+
+model.1 <- aov(sleep_rem~vore,data=my.data) 
+
+summary(model.1)
+```
+```{r}
+model.1 <- aov(sleep_rem~vore,data=my.data) 
+
+summary(model.1)
+my.data %>% 
+  aov(sleep_rem~vore,data=.) %>% 
+  TukeyHSD()
+```
+```{r}
+library(palmerpenguins)
+table(penguins$species)
+penguins %>% 
+  ggplot(aes(x=species,y=flipper_length_mm))+
+  geom_boxplot()
+  
+```
+```{r}
+penguins %>% 
+  aov(flipper_length_mm~species,data=.) %>% 
+  TukeyHSD()
+```
+```{r}
+summary(penguins %>% 
+  aov(flipper_length_mm~species,data=.))
+```
+```{r}
+penguins %>% 
+  ggplot(aes(x=flipper_length_mm))+
+  geom_histogram()+
+  facet_wrap(~species,ncol=1)
+```
+
+```{r}
+penguins %>% 
+  group_by(species) %>% 
+  summarise(var(flipper_length_mm,na.rm = T))
+```
+```{r}
+model.2 <- aov(flipper_length_mm~species,data=penguins)
+summary(model.2)
+TukeyHSD(model.2)
+```
+# Data cleaninng
+```{r}
+data.election.results <- list.files(path="data5/elections",full.names = T) %>% 
+  map(read.table,header=T,sep="\t") %>% 
+  reduce(rbind)
+
+data.election <- read.csv("data5/rcourse_lesson5_data_elections.txt",sep="\t")
+data.states <- read.csv("data5/rcourse_lesson5_data_states.txt",sep="\t")
+xtabs(~civil_war,data.states)
+xtabs(~incumbent_party,data.election)
+```
+```{r}
+data.states.clean <- data.states %>% 
+  filter(!is.na(civil_war)) %>% 
+  group_by(civil_war) %>% 
+  arrange(order_enter) %>% 
+  filter(row_number()<=11) %>% 
+  ungroup()
+
+xtabs(~civil_war,data.states.clean)
+
+data.clean <- data.election.results %>% 
+  inner_join(data.election) %>% 
+  inner_join(data.states.clean) %>% 
+  mutate(state=factor(state))
+
+xtabs(~incumbent_party+civil_war,data = data.clean)
+```
+# Figures
+```{r}
+data.figs <- data.clean %>% 
+  mutate(civil_war=factor(civil_war,levels=c("union","confederacy"),labels=c("Union","Confederacy"))) %>% 
+  mutate(incumbent_party=factor(incumbent_party,levels=c("democrat","republican"),labels=c("Democrat","Republican")))
+
+incumbent.histogram.full.plot <- data.figs %>% 
+  ggplot(aes(x=perc_votes_incumbent,fill=incumbent_party))+
+  geom_histogram(bins = 30)+
+  facet_grid(incumbent_party~civil_war)+
+  scale_fill_manual(values=c("blue","red"))
+
+incumbent.histogram.full.plot
+```
+```{r}
+data.figs.state.sum <- data.figs %>% 
+  group_by(state,incumbent_party,civil_war) %>% 
+  summarise(perc_incumbent_mean=mean(perc_votes_incumbent,na.rm = T)) %>% 
+  ungroup()
+
+incumbent.histogram.full.plot1 <- data.figs.state.sum %>% 
+  ggplot(aes(x=perc_incumbent_mean,fill=incumbent_party))+
+  geom_histogram(bins = 30)+
+  facet_grid(incumbent_party~civil_war)+
+  scale_fill_manual(values=c("blue","red"))
+
+incumbent.histogram.full.plot1
+```
+```{r}
+incumbent.boxplot <- data.figs.state.sum %>% 
+  ggplot(aes(x=civil_war,y=perc_incumbent_mean,fill=incumbent_party))+
+  geom_boxplot()+
+  ylim(0,100)+
+  geom_hline(yintercept = 50)+
+  scale_fill_manual(values = c("blue","red"))
+
+incumbent.boxplot
+```
+```{r}
+data.figs.sum <- data.figs.state.sum %>% 
+  group_by(incumbent_party,civil_war) %>% 
+  summarise(mean=mean(perc_incumbent_mean,na.rm = T),sd=sd(perc_incumbent_mean,na.rm=T),n=n()) %>% 
+  ungroup() %>% 
+  mutate(se=sd/sqrt(n),se_high=mean+se,se_low=mean-se)
+  
+barplot.plot <- data.figs.sum %>% 
+  ggplot(aes(x=civil_war,y=mean,fill=incumbent_party))+
+  geom_bar(stat = "identity",position="dodge")+
+  geom_errorbar(aes(ymin=se_low,ymax=se_high),width=.2,position=position_dodge(.9))+
+  ylim(0,100)+
+  geom_hline(yintercept = 50)+
+  scale_fill_manual(values=c("blue","red"))+
+  ggtitle("How we vote")+
+  theme(text=element_text(size=14),title=element_text(size=16))+
+  ggeasy::easy_center_title()
+  
+barplot.plot
+```
+
+
+# Statistics
+```{r}
+install.packages("ez")
+library(ez)
+
+data.stats <- data.clean %>% 
+  mutate(civil_war=factor(civil_war,levels=c("union","confederacy"))) %>% 
+  group_by(state,incumbent_party,civil_war) %>% 
+  summarise(perc_incumbent_mean=mean(perc_votes_incumbent,na.rm = T)) %>% 
+  ungroup()
+
+xtabs(~state+incumbent_party,data.stats)
+xtabs(~state+civil_war,data.stats)
+```
+```{r}
+incumbent.aov <- aov(perc_incumbent_mean~incumbent_party*civil_war+Error(state/incumbent_party),data = data.stats)
+
+summary( incumbent.aov)
+#TukeyHSD(incumbent.aov)
+```
+## ezANOVA
+```{r}
+incumbent.ezanova <- ezANOVA(data.frame(data.stats),dv=perc_incumbent_mean,
+                             wid=state,within=incumbent_party,between=civil_war,type=3)
+
+summary(incumbent.ezanova)
+```
+```{r}
+data.union.stats <- data.stats %>% 
+  filter(civil_war=="union") %>% 
+  spread(incumbent_party,perc_incumbent_mean)
+
+data.confederacy.stats <- data.stats %>% 
+  filter(civil_war=="confederacy") %>% 
+  spread(incumbent_party,perc_incumbent_mean)
+
+data.democrat.stats <- data.stats %>% 
+  filter(incumbent_party=="democrat")
+data.republican.stats <- data.stats %>% 
+  filter(incumbent_party=="republican")
+
+```
+
+## t test: Effect of incumbent party
+```{r}
+incumbent.union.ttest <- t.test(data.union.stats$democrat,data.union.stats$republican,paired = T)
+incumbent.union.ttest
+
+incumbent.confederacy.ttest <- t.test(data.confederacy.stats$democrat,data.confederacy.stats$republican,paired = T)
+incumbent.confederacy.ttest
+```
+```{r}
+incumbent.democrat.ttest <- t.test(perc_incumbent_mean~civil_war,paired=F,data = data.democrat.stats)
+
+
+incumbent.republican.ttest <- t.test(perc_incumbent_mean~civil_war,paired=F,data = data.republican.stats)
+
+incumbent.democrat.ttest
+incumbent.republican.ttest
+```
+
+
+## Incumbent Party: Do Democrats or Republicans get a higher percentage of the vote when they are an incumbent?
+
+## Civil War Country: Do Union or Confederate states vote differently for incumbents?
+
+## Incumbent Party x Civil War Country: Is there an interaction between these variables?

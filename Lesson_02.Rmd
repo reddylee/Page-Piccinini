@@ -11,6 +11,22 @@ library(dplyr)
 library(ggplot2)
 ```
 
+# Math
+$$ y_i=a+bx_i+e_i$$
+## example 1
+```{r}
+attach(ChickWeight)
+summary(lm(weight~Time))
+```
+## example
+```{r}
+data_lesson <- read.csv("rcourse_lesson1_data.txt",sep = "\t")
+categorical.lm <- lm(rt~type,data=data_lesson)
+head(resid(categorical.lm))
+```
+
+
+
 # Data Cleaning
 ```{r}
 library(babynames)
@@ -48,25 +64,37 @@ Page.plot <- data_figs %>%
 Lee.plot
 Page.plot
 ```
-## how the popularity of my name, “Page”, changes over time
+## time effect
 ```{r}
 year.plot <- data_figs %>% 
   ggplot(aes(x=year,y=log10(prop)))+
   geom_point()+
-  geom_smooth(method = "lm")
+  geom_smooth(method = "lm")+
+  ggtitle("Proportion of people with name 'Page' over time")+
+  xlab("Year")+
+  ylab("Proportion of people(log)")+
+  theme_classic()+
+  theme(text=element_text(size=14),title=element_text(size=16))
 
 year.plot
 ```
-## if there is a difference by sex in terms of popularity
+## gender effect
 ```{r}
 sex.plot <- data_figs %>% 
   ggplot(aes(x=sex,y=log10(prop)))+
-  geom_boxplot(color="purple")
+  geom_boxplot(aes(fill=sex))+
+  ggtitle("Proportion of People with the Name 'Page' By Sex")+
+  xlab("Gender")+
+  ylab("Proportion of People\n(log base 10 transformed)")+
+  theme_classic()+
+  theme(text=element_text(size=14),
+        title=element_text(size=16),
+        legend.position="none", legend.key=element_blank())
 
 sex.plot
 ```
 # Statistics analysis
-## year effect
+## Continuous Predictor: Does your name get more or less popular between the years of 1901 and 2000?
 ```{r}
 library(stargazer)
 data.stats <- data_clean
@@ -78,7 +106,7 @@ stargazer(year.lm,type="text")
 hist( resid(year.lm))
 ```
 
-## sex effect
+## Categorical Predictor: Is your name more or less popular with females or males?
 ```{r}
 sex.lm <- lm(log10(prop)~sex)
 summary(sex.lm)

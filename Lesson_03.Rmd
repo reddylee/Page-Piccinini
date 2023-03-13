@@ -10,7 +10,19 @@ knitr::opts_chunk$set(echo = TRUE)
 library(dplyr)
 library(ggplot2)
 ```
+# Math
+## Linear Regression vs. Logistic Regression
+$$ y_i=a+bx_i+e_i$$
+$$logit({ p \over 1-p \large})_i=a+bx_i$$
+Notice: there is no random variance or error term. 
 
+## example in R
+```{r}
+ChickWeight <- ChickWeight %>% 
+  mutate(weight_above_median=ifelse(weight>mean(weight),1,0))
+weight.glm <- glm(weight_above_median~Time,family="binomial",data = ChickWeight)
+summary(weight.glm)
+```
 # Data Cleaning
 ```{r}
 fullseason <- read.csv("rcourse_lesson3_data.txt",sep = "\t") %>% 
@@ -29,16 +41,22 @@ posey_clean <- posey %>%
 
 # Figures
 ```{r}
-data_figs <- fullseason %>% 
+data.figs <- fullseason %>% 
   mutate(allstar_break=factor(allstar_break,levels=c("before","after")))
 
-data_figs_sum <- data_figs %>% 
+data.figs.sum <- data.figs %>% 
   group_by(allstar_break) %>% 
   summarise(wins_perc=mean(win)*100) %>% 
-  ungroup() %>% 
-  View()
+  ungroup()
 
-allstar.plot <- data_figs_sum %>% 
+posey.figs <- posey_clean
+
+posey.figs.sum <- posey.figs %>% 
+  group_by(walked) %>% 
+  summarise(wins_perc=mean(win)*100) %>% 
+  ungroup()
+
+allstar.plot <- data.figs.sum %>% 
   ggplot(aes(x=allstar_break,y=wins_perc))+
   geom_bar(stat = "identity")+
   ylim(0,100) 
@@ -47,29 +65,27 @@ allstar.plot
 ```
 
 ```{r}
-posey_figs <- posey_clean 
-
-posey_figs_sum <- posey_figs %>% 
-  group_by(walked) %>% 
-  summarise(wins_perc=mean(win)*100) %>% 
-  ungroup() %>% 
-  View()
-
-posey_walked_plot <- posey_figs_sum %>% 
+posey.walked.plot <- posey.figs.sum %>% 
   ggplot(aes(x=walked,y=wins_perc))+
   geom_bar(stat = "identity")+
   ylim(0,100)
 
-posey_walked_plot
+posey.walked.plot
 ```
 
 # Statistics
+## Full Season: Did the Giants win more games before or after the All-Star break?
+
 ```{r}
+fullseason <- fullseason%>%
+  mutate(allstar_break=factor(allstar_break,levels=c("before","after")))
 allstar.glm <- glm(win~allstar_break,family="binomial",data=fullseason)
 summary(allstar.glm)
 ```
+
+## Buster Posey: Are the Giant's more likely to win in games where Buster Posey was walked at least once?
 ```{r}
-posey_walked_glm <- glm(win~walked,family = "binomial",data=posey_clean)
-summary(posey_walked_glm)
+posey.walked.glm <- glm(win~walked,family = "binomial",data=posey_clean)
+summary(posey.walked.glm)
 ```
 

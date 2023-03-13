@@ -1,0 +1,155 @@
+---
+title: 'R Course: Lesson 4: MULTIPLE REGRESSION'
+author: "Reddy Lee"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(ggplot2)
+library(stargazer)
+library(purrr)
+```
+
+# Math
+
+$$ y_i=a+b_1x_{1i}+b_2x_{2i}+e_i$$ $$ y_i=a+b_1x_{1i}+b_2x_{2i}+b_1x_{1i}*b_2x_{2i}+e_i$$
+
+```{r}
+babynames <- babynames %>% 
+  filter(year>1900&year<=2000) %>% 
+  mutate(century_half=factor(ifelse(year>1950,"second","first")),
+         prop.mean=prop/n)
+  
+
+century.half1 <- lm(log10(prop)~century_half,data=babynames)
+century.half2 <- lm(log10(prop)~sex,data=babynames)
+century.half3 <- lm(log10(prop)~century_half+sex,data=babynames)
+century.half4 <- lm(log10(prop)~century_half*sex,data=babynames)
+
+stargazer(century.half1,century.half2,century.half3,century.half4, type = "text")
+```
+
+### First half century & Female
+
+$$y=-4.72+0.064*0-0.296*0-0.040*0*0=-4.73$$
+
+### First haff century & Male
+
+$$y=-4.72+0.064*1-0.296*0-0.040*1*0=-4.72+0.064=-4.656$$
+
+### Second half century & Female
+
+$$y=-4.72+0.064*0-0.296*1-0.040*0*1=-4.72-0.296=-5.016$$
+
+### Second half century & Male
+
+$$y=-4.72+0.064*1-0.296*1-0.040*1*1=-4.72+0.064-0.296-0.04=-4.992$$
+
+```{r}
+-4.72+0.064
+-4.72-0.296
+-4.72+0.064-0.296-0.04
+```
+
+|                     |        |        |
+|---------------------|--------|--------|
+|                     | Female | Male   |
+| First half century  | -4.73  | -4.656 |
+| Second half century | -5.016 | -4.992 |
+
+### Relevel
+
+```{r}
+century.half <- lm(log10(prop)~relevel(century_half,"second")*sex,data=babynames)
+summary(century.half)
+stargazer(century.half, type = "text")
+```
+# Data:Extinction Likelihood of Star Trek Alien Species
+```{r}
+aliens.tas <- read.csv("https://raw.githubusercontent.com/pagepiccinini/rcourse_lesson4/master/data/rcourse_lesson4_data_aliens_tas.txt",sep = "\t")
+aliens.tng <- read.csv("https://raw.githubusercontent.com/pagepiccinini/rcourse_lesson4/master/data/rcourse_lesson4_data_aliens_tng.txt",sep = "\t")
+aliens.tos <- read.csv("https://raw.githubusercontent.com/pagepiccinini/rcourse_lesson4/master/data/rcourse_lesson4_data_aliens_tos.txt",sep = "\t")
+
+#Note, this call is assuming that all files have the same number of columns and same names of columns.  
+aliens <- list.files(path ="data",full.names = T) %>% 
+  map(read.table,header=T,sep="\t",na.strings=c("",NA)) %>% 
+  reduce(rbind) 
+
+data.clean <- aliens %>% 
+  filter(series!="tas") %>% 
+  mutate(series=factor(series)) %>% 
+  filter(alignment=="foe"|alignment=="friend") %>% 
+  mutate(alignment=factor(alignment)) %>% 
+  filter(!is.na(conservation)) %>% 
+  mutate(extinct=ifelse(conservation=="LC",0,1)) %>% 
+  group_by(series,alignment,alien) %>%
+  arrange(episode) %>%
+  filter(row_number()==1) %>%
+  ungroup()
+
+head(data.clean)
+```
+
+# Plot
+```{r}
+data.figs <- data.clean %>% 
+  mutate(series=factor(series,levels=c("tos","tng"),labels=c("The Original Series","The Next Generation")))
+
+data.figs.sum <- data.figs %>% 
+  group_by(series,alignment) %>% 
+  summarise(perc_extinct=mean(extinct)*100) %>% 
+  ungroup()
+
+extinct.plot <- data.figs.sum %>% 
+  ggplot(aes(x=series,y=perc_extinct,fill=alignment))+
+  geom_bar(stat="identity",position="dodge")+
+  ylim(0,100)+
+  geom_hline(yintercept = 50)+
+  scale_fill_manual(values = c("red","yellow"))
+
+extinct.plot
+```
+# Statistics
+```{r}
+data.stats <- data.clean %>% 
+  mutate(series=factor(series,levels=c("tos","tng")))
+```
+
+## Series: Is a given species more or less likely to become extinct in "Star Trek: The Original Series" or "Star Trek: The Next Generation?
+```{r}
+series.glm <- glm(extinct~series,family="binomial",data=data.stats)
+summary(series.glm)
+```
+## Alignment: Is a given species more or less likely to become extinct if it is a friend or a foe of the Enterprise?
+```{r}
+alignment.glm <- glm(extinct~alignment,family="binomial",data=data.stats)
+summary(alignment.glm)
+```
+
+## Series & Alignment: Is there an interaction between these variables?
+
+### Without an interaction
+```{r}
+seriesalignment.glm <- glm(extinct~series+alignment,family="binomial",data=data.stats)
+summary(seriesalignment.glm)
+```
+Note, the estimates aren’t exactly the same as in our single variable models. This is because our data set is unbalanced, and our additive model takes this into account when computing the estimates for both variables at the same time. If our data set were fully balanced we would have the same estimates across the single variable models and the additive model.
+
+### With an interaction
+```{r}
+seriesxalignment.glm <- glm(extinct~series*alignment,family="binomial",data=data.stats)
+summary(seriesxalignment.glm)
+```
+### Change baseline: The next generation
+```{r}
+seriesxxalignment.glm <- glm(extinct~relevel( series,"tng")*alignment,family="binomial",data=data.stats)
+summary(seriesxxalignment.glm)
+```
+### Change baseline: friend
+```{r}
+seriesxxxalignment.glm <-glm(extinct~series*relevel(alignment,"friend"),family="binomial",data=data.stats)
+summary(seriesxxxalignment.glm)
+```
